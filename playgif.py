@@ -10,32 +10,6 @@ try:
 except:
     pass
 
-"""
-import rgbmatrix
-import framebufferio
-displayio.release_displays()
-matrix = rgbmatrix.RGBMatrix(
-    width=64, height=32, bit_depth=4,
-    rgb_pins=[
-        board.MTX_R1,
-        board.MTX_G1,
-        board.MTX_B1,
-        board.MTX_R2,
-        board.MTX_G2,
-        board.MTX_B2
-    ],
-    addr_pins=[
-        board.MTX_ADDRA,
-        board.MTX_ADDRB,
-        board.MTX_ADDRC,
-        board.MTX_ADDRD
-    ],
-    clock_pin=board.MTX_CLK,
-    latch_pin=board.MTX_LAT,
-    output_enable_pin=board.MTX_OE
-)
-display = framebufferio.FramebufferDisplay(matrix)
-"""
 try:
     type(envVars)
 except:
@@ -91,55 +65,55 @@ except:
 input('Press "Enter" to continue, press "q" to quit')
 
 odgcc = gifio.OnDiskGif(fname)
+with odgcc as odg:
 
-#start = time.monotonic()
-#next_delay = odgcc.next_frame() # Load the first frame
-#end = time.monotonic()
-#overhead = end - start
+    if getenv('PYDOS_DISPLAYIO_COLORSPACE',"").upper() == 'BGR565_SWAPPED':
+        colorspace = displayio.Colorspace.BGR565_SWAPPED
+    else:
+        colorspace = displayio.Colorspace.RGB565_SWAPPED
 
-if getenv('PYDOS_DISPLAYIO_COLORSPACE',"").upper() == 'BGR565_SWAPPED':
-    colorspace = displayio.Colorspace.BGR565_SWAPPED
-else:
-    colorspace = displayio.Colorspace.RGB565_SWAPPED
+    scalefactor = display.width / odg.width
+    if display.height/odg.height < scalefactor:
+        scalefactor = display.height/odg.height
 
-scalefactor = display.width / odgcc.width
-if display.height/odgcc.height < scalefactor:
-    scalefactor = display.height/odgcc.height
+    if scalefactor < 1:
+        print(f'scalefactor: {scalefactor}')
+        bitframe = displayio.Bitmap(display.width,display.height,2**odg.bitmap.bits_per_value)
+        bitmaptools.rotozoom(bitframe,odg.bitmap,scale=scalefactor)
+        facecc = displayio.TileGrid(bitframe, \
+            pixel_shader=displayio.ColorConverter(input_colorspace=colorspace))
+    else:
+        facecc = displayio.TileGrid(odg.bitmap, \
+            pixel_shader=displayio.ColorConverter(input_colorspace=colorspace))
 
-if scalefactor < 1:
-    print(f'scalefactor: {scalefactor}')
-    bitframe = displayio.Bitmap(display.width,display.height,2**odgcc.bitmap.bits_per_value)
-    bitmaptools.rotozoom(bitframe,odgcc.bitmap,scale=scalefactor)
-    facecc = displayio.TileGrid(bitframe, \
-        pixel_shader=displayio.ColorConverter(input_colorspace=colorspace))
-else:
-    facecc = displayio.TileGrid(odgcc.bitmap, \
-        pixel_shader=displayio.ColorConverter(input_colorspace=colorspace))
+    splash.append(facecc)
 
-splash.append(facecc)
+    display.root_group = splash
 
-#try:
-#    board.DISPLAY.root_group = splash
-#except:
-display.root_group = splash
+    start = 0
+    next_delay = -1
+    cmnd = ""
+    # Display repeatedly.
+    while cmnd.upper() != "Q":
 
-cmnd = ""
-# Display repeatedly.
-while cmnd.upper() != "Q":
-
-    if Pydos_ui.serial_bytes_available():
-        cmnd = Pydos_ui.read_keyboard(1)
-        print(cmnd, end="", sep="")
-        if cmnd in "qQ":
-            break
-    #display.root_group=splash
-    next_delay = odgcc.next_frame()
-    if next_delay > 0:
-        #time.sleep(max(0, next_delay - overhead))
-        time.sleep(0.1)
-        if scalefactor < 1:
-            bitmaptools.rotozoom(bitframe,odgcc.bitmap,scale=scalefactor)
-#        next_delay = odgp.next_frame()
+        if Pydos_ui.serial_bytes_available():
+            cmnd = Pydos_ui.read_keyboard(1)
+            print(cmnd, end="", sep="")
+            if cmnd in "qQ":
+                break
+        while time.monotonic() > start and next_delay > time.monotonic()-start:
+            pass
+        next_delay = odg.next_frame()
+        start = time.monotonic()
+        if next_delay > 0:
+            if scalefactor < 1:
+                bitmaptools.rotozoom(bitframe,odg.bitmap,scale=scalefactor)
 
 splash.pop()
+odgcc = None
+facecc.bitmap.deinit()
+facecc = None
+if scalefactor < 1:
+    bitframe.deinit()
+    bitframe = None
 display.root_group = displayio.CIRCUITPYTHON_TERMINAL

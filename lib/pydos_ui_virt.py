@@ -19,6 +19,8 @@ if board.board_id == "makerfabs_tft7":
 elif board.board_id == "espressif_esp32s3_devkitc_1_n8r8_hacktablet":
     import dotclockframebuffer
     from adafruit_focaltouch import Adafruit_FocalTouch as Touch_Screen
+elif board.board_id ==  'lilygo_twatch_s3':
+    from adafruit_focaltouch import Adafruit_FocalTouch as Touch_Screen
 elif board.board_id == "sunton_esp32_2432S028":
     from pydos_xpt2046 import Touch as Touch_Screen
 else:
@@ -55,6 +57,10 @@ class PyDOS_UI:
         if board.board_id == "sunton_esp32_2432S028":
             ts_spi = board.TOUCH_SPI()
             ts_cs = board.TOUCH_CS
+        elif 'TOUCH_I2C' in dir(board):
+            i2c = board.TOUCH_I2C()
+        elif 'TOUCH_SCL' in dir(board):
+            i2c = busio.I2C(board.TOUCH_SCL, board.TOUCH_SDA)
         elif 'I2C' in dir(board):
             i2c = board.I2C()
         elif 'SCL' in dir(board):
@@ -306,7 +312,7 @@ class PyDOS_UI:
         print("Screen Calibrated: (%s,%s) (%s,%s)" % (smallest_X,smallest_Y,largest_X,largest_Y))
         return (smallest_X,smallest_Y,largest_X,largest_Y)
 
-    def get_screensize(self):
+    def get_screensize(self,disp=None):
         return (
             round(self.display.height/(terminalio.FONT.bitmap.height*displayio.CIRCUITPYTHON_TERMINAL.scale))-1,
             round(self.display.width/((terminalio.FONT.bitmap.width/95)*displayio.CIRCUITPYTHON_TERMINAL.scale))-2
